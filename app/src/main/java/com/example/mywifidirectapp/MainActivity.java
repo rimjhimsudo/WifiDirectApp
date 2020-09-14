@@ -1,6 +1,7 @@
 package com.example.mywifidirectapp;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
@@ -18,6 +19,7 @@ import android.net.wifi.p2p.WifiP2pDevice;
 import android.net.wifi.p2p.WifiP2pDeviceList;
 import android.net.wifi.p2p.WifiP2pInfo;
 import android.net.wifi.p2p.WifiP2pManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
@@ -40,6 +42,7 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.security.Permission;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -49,6 +52,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     ListView devicesList;
     TextView wifiStatus, wifiDirectstatus, discoveringPeersStatus,readMsg, deviceConnectionStatus;
     EditText writemsg;
+    //request code
+    public  static final int REQUEST_CODE=102; //random
     //
     WifiManager wifiManager;
     WifiP2pManager wifiP2pManager;
@@ -68,15 +73,18 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     Clientsideclass clientsideclass;
     SendRecieve sendRecieve;
 
+    @RequiresApi(api = Build.VERSION_CODES.M)
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        String[] perms = {"android.permission.ACCESS_FINE_LOCATION"};
+        requestPermissions( perms,REQUEST_CODE);
         bindingandIntents();
         btnDiscover.setOnClickListener(this);
         btnsend.setOnClickListener(this);
-        //btnOnoff.setOnClickListener(this);
     }
+
     Handler handler=new Handler(new Handler.Callback() {
         @Override
         public boolean handleMessage(@NonNull Message message) {
@@ -125,7 +133,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     wifiP2pManager.connect(channel, config, new WifiP2pManager.ActionListener() {
                         @Override
                         public void onSuccess() {
-                        Toast.makeText(getApplicationContext(),"device dosconnnected to"+itemDevice.deviceName,Toast.LENGTH_LONG).show();
+                        Toast.makeText(getApplicationContext(),"device connnected to"+itemDevice.deviceName,Toast.LENGTH_LONG).show();
                         }
 
                         @Override
@@ -185,6 +193,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
     };
 
+    @RequiresApi(api = Build.VERSION_CODES.M) //requestPermissions require this annotation
     @Override
     public void onClick(View view) {
         switch (view.getId()) {
@@ -192,6 +201,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 if(ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED) {
                     wifiP2pManager.discoverPeers(channel, new WifiP2pManager.ActionListener() {
                         @Override
+
                         public void onSuccess() {
                             discoveringPeersStatus.setText("devices discovering");
                         }
@@ -202,16 +212,15 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                         }
                     });
                 }
+                else{
+                    requestPermissions( new String[] { Manifest.permission.ACCESS_FINE_LOCATION},REQUEST_CODE);
+                }
                 break;
             case R.id.btn_send_msg:
                 String msg=writemsg.getText().toString();
                 sendRecieve.write(msg.getBytes());
-
-
         }
-
-
-        }
+    }
 
     @Override
     protected void onResume() {
@@ -222,7 +231,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         } else {
             wifiStatus.setText("wifi is off");
             AlertDialog.Builder alertDialogbuilder = new AlertDialog.Builder(this);
-            alertDialogbuilder.setMessage("Please Turn on yor wifi");
+            alertDialogbuilder.setMessage("Please Turn on your wifi");
             alertDialogbuilder.setCancelable(true);
             AlertDialog alertDialog = alertDialogbuilder.create();
             alertDialog.show();
@@ -258,6 +267,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         public  Clientsideclass(InetAddress hostAddress){
             hostAdd=hostAddress.getHostAddress();
             socket=new Socket();
+            Log.d(TAG, " hostadd    : "+hostAdd);
         }
         @Override
         public void run(){
@@ -309,6 +319,31 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             }
         }
     }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                                            int[] grantResults) {
+        switch (requestCode) {
+            case 102:
+                // If request is cancelled, the result arrays are empty.
+                if (grantResults.length > 0 &&
+                        grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    // Permission is granted. Continue the action or workflow
+                    // in your app.
+                }
+                else {
+                    // Explain to the user that the feature is unavailable because
+                    // the features requires a permission that the user has denied.
+                    // At the same time, respect the user's decision. Don't link to
+                    // system settings in an effort to convince the user to change
+                    // their decision.
+                }
+                return;
+        }
+        // Other 'case' lines to check for other
+        // permissions this app might request.
+    }
+
 }
 /*
 if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)!= PackageManager.PERMISSION_GRANTED) {

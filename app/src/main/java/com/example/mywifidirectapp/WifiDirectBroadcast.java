@@ -54,15 +54,18 @@ public class WifiDirectBroadcast extends BroadcastReceiver {
         }
         else if (WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION.equals(action)){
             if(wifiP2pManager==null){
+                Log.d(TAG,"iside wifip2p manger null");
                 return;
             }
             NetworkInfo networkInfo=intent.getParcelableExtra(WifiP2pManager.EXTRA_NETWORK_INFO);
+            Log.d(TAG, " line no 60 : "+networkInfo.getExtraInfo()); //coming null
+            Log.d(TAG, " line no 61 : "+networkInfo.isConnected());
             if(networkInfo.isConnected()){
                 wifiP2pManager.requestConnectionInfo(channel,mainActivity.connectionInfoListener);
+                mainActivity.deviceConnectionStatus.setText("status changed-device connected");
             }
             else{
-
-                mainActivity.deviceConnectionStatus.setText("device connected");
+                mainActivity.deviceConnectionStatus.setText("status changed-device disconnected");
             }
 
         }

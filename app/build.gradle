@@ -29,5 +29,10 @@ dependencies {
     testImplementation 'junit:junit:4.12'
     androidTestImplementation 'androidx.test.ext:junit:1.1.2'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.3.0'
+    //for permission
+    implementation "androidx.activity:activity:1.1.0"
+    //for permisssion ,using third pary library
+    //implementation 'pub.devrel:easypermissions:3.0.0'
+
 
 }
