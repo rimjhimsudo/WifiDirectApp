@@ -63,9 +63,11 @@ public class WifiDirectBroadcast extends BroadcastReceiver {
             if(networkInfo.isConnected()){
                 wifiP2pManager.requestConnectionInfo(channel,mainActivity.connectionInfoListener);
                 mainActivity.deviceConnectionStatus.setText("status changed-device connected");
+                Log.d("line66",""+"printing");
             }
             else{
                 mainActivity.deviceConnectionStatus.setText("status changed-device disconnected");
+                Log.d("line66",""+"printing");
             }
 
         }

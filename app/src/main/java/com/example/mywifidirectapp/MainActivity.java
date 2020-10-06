@@ -34,6 +34,9 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.example.mywifidirectapp.services.ClientThread;
+import com.example.mywifidirectapp.services.ServerThread;
+
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -46,14 +49,18 @@ import java.security.Permission;
 import java.util.ArrayList;
 import java.util.List;
 
-public class MainActivity extends AppCompatActivity implements View.OnClickListener {
+public class MainActivity extends AppCompatActivity implements View.OnClickListener  {
     private static final String TAG = MainActivity.class.getSimpleName();
-    Button  btnDiscover, btnsend;
+    Button  btnDiscover, btnsend, btnSocket;
     ListView devicesList;
     TextView wifiStatus, wifiDirectstatus, discoveringPeersStatus,readMsg, deviceConnectionStatus;
     EditText writemsg;
+    boolean start_server=false,connect_server=false;
+    ServerThread serverThread;
+    ClientThread clientThread;
     //request code
     public  static final int REQUEST_CODE=102; //random
+    InetAddress inetAddress;
     //
     WifiManager wifiManager;
     WifiP2pManager wifiP2pManager;
@@ -69,9 +76,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     //
     static  final int message_read=1;
     //objects of classes of data transfer
-    Serversideclass serversideclass;
+    /*Serversideclass serversideclass;
     Clientsideclass clientsideclass;
-    SendRecieve sendRecieve;
+    SendRecieve sendRecieve;*/
 
     @RequiresApi(api = Build.VERSION_CODES.M)
     @Override
@@ -83,6 +90,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         bindingandIntents();
         btnDiscover.setOnClickListener(this);
         btnsend.setOnClickListener(this);
+        btnSocket.setOnClickListener(this);
     }
 
     Handler handler=new Handler(new Handler.Callback() {
@@ -105,6 +113,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         wifiDirectstatus=findViewById(R.id.wifidirect_status);
         btnDiscover = findViewById(R.id.btn_discover);
         btnsend=findViewById(R.id.btn_send_msg);
+        btnSocket=findViewById(R.id.btn_socket);
         writemsg=findViewById(R.id.et_msg);
         discoveringPeersStatus=findViewById(R.id.discovering_peers);
         devicesList=findViewById(R.id.listview);
@@ -114,7 +123,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         wifiP2pManager = (WifiP2pManager) getSystemService(Context.WIFI_P2P_SERVICE);
         channel = wifiP2pManager.initialize(this, getMainLooper(), null);
 
-        broadcastReceiver = new WifiDirectBroadcast(wifiP2pManager, channel, this);
+        broadcastReceiver = new WifiDirectBroadcast(wifiP2pManager, channel, MainActivity.this);
 
         intentFilter = new IntentFilter();
         intentFilter.addAction(WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION);
@@ -152,17 +161,27 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         @Override
         public void onConnectionInfoAvailable(WifiP2pInfo wifiP2pInfo) {
             final InetAddress groupOwnerAddress=wifiP2pInfo.groupOwnerAddress;
+            inetAddress=groupOwnerAddress;
             if(wifiP2pInfo.groupFormed && wifiP2pInfo.isGroupOwner){
                 deviceConnectionStatus.setText("host");
+                Log.d("INSIDE157", "called"); // 1 TIME
                 //thread class instantiated and started
-                serversideclass=new Serversideclass();
-                serversideclass.start();
+                start_server=true;
+               /* ServerThread serverThread=new ServerThread();
+                Thread thread = new Thread(serverThread);
+                thread.start();*/
+                //serverThread.sendMessage("HELLOOOOOOPLS");
             }
             else if(wifiP2pInfo.groupFormed){
                 deviceConnectionStatus.setText("client");
+                Log.d("INSIDE164", "called"); ///1 TIME
+                connect_server=true;
+                /*ClientThread clientThread=new ClientThread(groupOwnerAddress);
+                Thread thread1=new Thread(clientThread);
+                thread1.start();*/
                 //thread class instantiated and started
-                clientsideclass=new Clientsideclass(groupOwnerAddress);
-                clientsideclass.start();
+                /*clientsideclass=new Clientsideclass(groupOwnerAddress);
+                clientsideclass.start();*/
             }
         }
     };
@@ -204,11 +223,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
                         public void onSuccess() {
                             discoveringPeersStatus.setText("devices discovering");
+                            Log.d("INSIDE207", "called"); // 1 TIME
                         }
 
                         @Override
                         public void onFailure(int i) {
                             discoveringPeersStatus.setText("discovering failed");
+                            Log.d("INSIDE213", "called"); //1 TIME
                         }
                     });
                 }
@@ -218,7 +239,29 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 break;
             case R.id.btn_send_msg:
                 String msg=writemsg.getText().toString();
-                sendRecieve.write(msg.getBytes());
+                if (start_server){
+                    serverThread.sendMessage(msg);
+                }
+                else if(connect_server){
+                    clientThread.sendMessage(msg);
+                }
+
+
+                //sendRecieve.write(msg.getBytes());
+                //new code addition hit and trial
+            case R.id.btn_socket:
+                if(start_server){
+                    serverThread=new ServerThread();
+                    Thread thread = new Thread(serverThread);
+                    thread.start();
+                }
+                else if(connect_server){
+                    clientThread=new ClientThread(inetAddress);
+                    Thread thread1=new Thread(clientThread);
+                    thread1.start();
+                }
+
+
         }
     }
 
@@ -245,8 +288,22 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         super.onPause();
         unregisterReceiver(broadcastReceiver);
     }
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (null != serverThread) {
+            serverThread.sendMessage("Disconnect");
+            serverThread.interrupt();
+            serverThread = null;
+        }
+        if (null != clientThread){
+            clientThread.sendMessage("Disconnect");
+            clientThread = null;
+        }
 
-    public  class Serversideclass extends  Thread{
+    }
+
+    /*public  class Serversideclass extends  Thread{
         Socket socket;
         ServerSocket serverSocket;
         @Override
@@ -256,6 +313,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 socket=serverSocket.accept();
                 sendRecieve=new SendRecieve(socket);
                 sendRecieve.start();
+
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -302,6 +360,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             while(socket!=null){
                 try {
                     bytes=inputStream.read(buffer);
+                    Log.d("INSIDE",""+bytes);
                     if(bytes>0){
                         handler.obtainMessage(message_read,bytes,-1,buffer).sendToTarget();
                     }
@@ -313,12 +372,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
         public  void write(byte[] bytes){
             try {
+                //method for sending to other device from thi device outputstream to receiver device inputstream
                 outputStream.write(bytes);
+
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
-    }
+    }*/
 
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions,
